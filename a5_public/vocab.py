@@ -95,6 +95,12 @@ class VocabEntry(object):
         """
         return 'Vocabulary[size=%d]' % len(self)
 
+    def char_count(self):
+        """ Returns the number of characters in VocabEntry
+        @returns len (int): number of characters in VocabEntry
+        """
+        return len(self.char2id)
+
     def id2word(self, wid):
         """ Return mapping of index to word.
         @param wid (int): word index

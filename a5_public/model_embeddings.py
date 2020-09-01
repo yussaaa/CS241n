@@ -45,7 +45,9 @@ class ModelEmbeddings(nn.Module):
         self.e_char_size = 50
         self.embed_size = embed_size  #The attribute name has to match the line 465 in nmt_model
 
-        self.embeddings = nn.Embedding(len(vocab.char2id), self.e_char_size,
+# len(vocab.char2id)
+        self.char_embed = nn.Embedding(num_embeddings=vocab.char_count(),
+                                       embedding_dim=self.e_char_size,
                                        padding_idx=pad_token_idx)
         self.cnn = CNN(input_channels=self.e_char_size,
                        output_channels=self.embed_size)
@@ -69,18 +71,17 @@ class ModelEmbeddings(nn.Module):
 
         ### YOUR CODE HERE for part 1j
 
-        # Get the shape of the input
+        # Get the shape of the input (sen_len,b,max_word_len)
         sen_len, b, max_word = input.shape
         # 1. Embed the input with the character embedding
-        embedded = self.embeddings(input)
+        emb = self.char_embed(input)
             # Shape : sen_len, b, max_word, e_char
 
         # 2. Reshape the embedded tensor to the corresponding CNN input shape
         #    sen_len, b, max_word, e_char --> reshape
         #    (b*sen_len, m_word, e_char) --> permute
         #    (b*sen_len, e_char, m_word)
-        embedded_reshape = embedded.reshape(b*sen_len, max_word,
-                                            self.e_char_size).\
+        embedded_reshape = emb.reshape(emb.size(0) * emb.size(1), emb.size(2), emb.size(3)).\
                                             permute(0,2,1)
         # 3. CNN (b*sen_len, e_word)
         conv = self.cnn(embedded_reshape)
@@ -92,7 +93,7 @@ class ModelEmbeddings(nn.Module):
         dropout = self.dropout(highway) # (b*sen_len, e_word)
 
         # Output tensor size: (sentence_length, batch_size, embed_size)
-        word_embedding = dropout.reshape(sen_len, b, self.embed_size)
+        word_embedding = dropout.reshape(sen_len, b, dropout.size(1))#self.embed_size)
 
         return word_embedding
         ### END YOUR CODE

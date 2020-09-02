@@ -35,15 +35,17 @@ class CharDecoder(nn.Module):
         ###       - Create a new Embedding layer. Do not reuse embeddings created in Part 1 of this assignment.
         super().__init__()
 
-        self.decoderCharEmb = nn.Embedding(num_embeddings=len(target_vocab.char2id),
-                                           embedding_dim=char_embedding_size,
-                                           padding_idx=target_vocab.char2id['<pad>']
-                                           )
-        self.charDecoder = nn.LSTM(input_size=char_embedding_size,
-                                   hidden_size=hidden_size) # Default layer = 1
+        self.decoderCharEmb = nn.Embedding(
+                                num_embeddings=len(target_vocab.char2id),
+                                embedding_dim=char_embedding_size,
+                                padding_idx=target_vocab.char2id['<pad>']
+                                )
+        self.charDecoder = nn.LSTM(
+                                input_size=char_embedding_size,
+                                hidden_size=hidden_size) # Default layer = 1
         self.char_output_projection = nn.Linear(
-                                        in_features=hidden_size,
-                                        out_features=len(target_vocab.char2id))
+                                in_features=hidden_size,
+                                out_features=len(target_vocab.char2id))
         self.target_vocab = target_vocab
         ### END YOUR CODE
 
@@ -60,6 +62,7 @@ class CharDecoder(nn.Module):
         """
         ### YOUR CODE HERE for part 2b
         ### TODO - Implement the forward pass of the character decoder.
+
         #1. Embed the char index to char_embedding: (l,b) --> (l,b, e_char)
         X = self.decoderCharEmb(input)
         #2. LSTM: (l,b, e_char) --> (l,b,h):(seq_len, batch, num_directions * hidden_size)
@@ -89,10 +92,11 @@ class CharDecoder(nn.Module):
         #1. Input and make prediction score using LSTM & Projection
         input_seq = char_sequence[:-1]  #size (l,b)
         scores, _ = self.forward(input_seq, dec_hidden) #size (l,b,h)
-        scores = scores.permute(0,2,1) #(l,h,b) since h: number of classed should be in the middle
+        # scores = scores.permute(0,2,1) #(l,h,b) since h: number of classed should be in the middle
+        scores = scores.permute(1, 2, 0)  # Tensor: (b, v, l)
 
         #2. Remove the <START> token in the target sequence
-        tar_seq = char_sequence[1:] #size (l,b)
+        tar_seq = char_sequence[1:].permute(1, 0) #size (l,b)
 
         #3. Calculation the cross-entropy
         loss_ce = nn.CrossEntropyLoss(reduction='sum')
@@ -131,15 +135,17 @@ class CharDecoder(nn.Module):
 
         output_word = [''] * batch
 
-
-        for t in range(max_length):
+        for _ in range(max_length):
             score, dec_hidden = self.forward(current_char_ids, current_states)  # Input needs to be tensor integer (l,b)
 
-            # what if not sequeezing
+            # what if not sequeezing???
             probability = torch.softmax(score.squeeze(0), dim=1) # Score(1,b,v) -> (b,v)
             current_char_ids = torch.argmax(probability, dim=1).unsqueeze(0)    #(1,b)
-            for i, c in enumerate(current_char_ids.squeeze(0)):
+            # Assign hidden state for next word iteration
+            current_states = dec_hidden
+            for i, c in enumerate(current_char_ids.squeeze(dim=0)):
                 output_word[i] += self.target_vocab.id2char[int(c)]
+
         decodedWords = []
         for word in output_word:
             end_pos = word.find(self.target_vocab.id2char[END])
